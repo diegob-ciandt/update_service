@@ -132,7 +132,10 @@ successor="${NAME}"
 export UPDATE_ID=${BUILD_NUMBER}
 
 # Determine which original groups has the desired route --> the current original
-route="${ROUTE_HOSTNAME}.${ROUTE_DOMAIN}"
+# Aceita rotas separadas por ponto e vírgula
+SPLITED_ROUTE_HOSTNAME=$(echo $ROUTE_HOSTNAME | tr ";" "\n")
+FIRST_ROUTE_HOSTNAME=$(echo $SPLITED_ROUTE_HOSTNAME | awk 'NR==1{print $1}')
+route="${FIRST_ROUTE_HOSTNAME}.${ROUTE_DOMAIN}"
 ROUTED=($(getRouted "${route}" "${originals[@]}"))
 logDebug ${#ROUTED[@]} of original groups routed to ${route}: ${ROUTED[@]}
 
@@ -159,13 +162,16 @@ if [[ 1 = ${#originals[@]} ]] || [[ -z $original_grp ]]; then
     exit ${rc}
   fi
   logInfo "Initial version, mapping route"
+  
   # Alteração para incluir mais de uma rota por app, separada por vírgula
-  # TODO
-  mapRoute ${successor} ${ROUTE_DOMAIN} ${ROUTE_HOSTNAME} && rc=$? || rc=$?
-  if (( ${rc} )); then
-    logError "Failed to map the route ${ROUTE_DOMAIN}.${ROUTE_HOSTNAME} to ${successor}"
-    exit ${rc}
-  fi
+  for currHostName in $SPLITED_ROUTE_HOSTNAME
+  do
+    mapRoute ${successor} ${ROUTE_DOMAIN} ${currHostName} && rc=$? || rc=$?
+    if (( ${rc} )); then
+      logError "Failed to map the route ${ROUTE_DOMAIN}.${currHostName} to ${successor}"
+      exit ${rc}
+    fi
+  done
   exit 0
 else
   logInfo "Not initial version"
